@@ -1,0 +1,510 @@
+===============================================
+PORTFOLIO BACKEND API DOCUMENTATION
+===============================================
+Author: Hafiz Al Asad
+Base URL: http://localhost:4000/api
+Version: 1.0.0
+
+Table of Contents:
+1. Getting Started
+2. API Endpoints
+3. Error Handling
+4. Frontend Integration Examples
+5. Best Practices
+6. TypeScript Interfaces
+
+===============================================
+1. GETTING STARTED
+===============================================
+
+Base Configuration:
+------------------
+const API_BASE_URL = 'http://localhost:4000/api';
+
+Default Headers:
+---------------
+{
+  'Content-Type': 'application/json'
+}
+
+Utility Function for API Calls:
+-----------------------------
+```javascript
+const apiCall = async (endpoint, options = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      ...options
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'API call failed');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`API Error: ${error.message}`);
+    throw error;
+  }
+};
+```
+
+===============================================
+2. API ENDPOINTS
+===============================================
+
+1. CONTACT FORM API
+------------------
+Endpoint: /contact
+Method: POST
+Purpose: Submit contact form messages
+
+Request Body:
+```javascript
+{
+  name: string;    // Required
+  email: string;   // Required, valid email
+  subject: string; // Required
+  message: string; // Required
+}
+```
+
+Example Usage:
+```javascript
+const submitContactForm = async (formData) => {
+  try {
+    const response = await apiCall('/contact', {
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+    
+    // Handle success
+    console.log('Message sent:', response.message);
+    return response.data;
+  } catch (error) {
+    // Handle error
+    console.error('Failed to send message:', error);
+    throw error;
+  }
+};
+
+// Usage in React component
+const ContactForm = () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await submitContactForm({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message
+      });
+      // Show success message
+      setSuccess(true);
+    } catch (error) {
+      // Show error message
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+};
+```
+
+2. PROJECTS API
+--------------
+
+a. Get All Projects
+Endpoint: /projects
+Method: GET
+Query Parameters:
+- category?: 'Web' | 'UI' | 'Fullstack' | 'Research' | 'Other'
+- featured?: boolean
+
+Example Usage:
+```javascript
+const getProjects = async (category, featured) => {
+  const params = new URLSearchParams();
+  if (category) params.append('category', category);
+  if (featured) params.append('featured', featured.toString());
+  
+  return apiCall(`/projects?${params.toString()}`);
+};
+
+// Usage in React component
+const ProjectsGrid = () => {
+  const [projects, setProjects] = useState([]);
+  
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await getProjects('Web', true);
+        setProjects(response.data);
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+      }
+    };
+    
+    fetchProjects();
+  }, []);
+};
+```
+
+b. Get Single Project
+Endpoint: /projects/:id
+Method: GET
+
+Example Usage:
+```javascript
+const getProjectDetails = async (projectId) => {
+  return apiCall(`/projects/${projectId}`);
+};
+
+// Usage in React component
+const ProjectDetails = ({ projectId }) => {
+  const [project, setProject] = useState(null);
+  
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const response = await getProjectDetails(projectId);
+        setProject(response.data);
+      } catch (error) {
+        console.error('Failed to fetch project:', error);
+      }
+    };
+    
+    fetchProject();
+  }, [projectId]);
+};
+```
+
+3. GITHUB INTEGRATION API
+------------------------
+
+a. Get GitHub Activity
+Endpoint: /github/activity
+Method: GET
+
+Example Usage:
+```javascript
+const getGithubActivity = async () => {
+  return apiCall('/github/activity');
+};
+
+// Usage with custom hook
+const useGithubActivity = () => {
+  const [activity, setActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchActivity = async () => {
+      try {
+        setLoading(true);
+        const response = await getGithubActivity();
+        setActivity(response.data);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivity();
+  }, []);
+
+  return { activity, loading, error };
+};
+```
+
+b. Get GitHub Repositories
+Endpoint: /github/repos
+Method: GET
+
+Example Usage:
+```javascript
+const getGithubRepos = async () => {
+  return apiCall('/github/repos');
+};
+
+// Usage in React component
+const GithubProjects = () => {
+  const [repos, setRepos] = useState([]);
+  
+  useEffect(() => {
+    const fetchRepos = async () => {
+      try {
+        const response = await getGithubRepos();
+        setRepos(response.data);
+      } catch (error) {
+        console.error('Failed to fetch repos:', error);
+      }
+    };
+    
+    fetchRepos();
+  }, []);
+};
+```
+
+===============================================
+3. ERROR HANDLING
+===============================================
+
+Error Response Structure:
+```javascript
+{
+  success: false,
+  message: string,
+  error?: string // Only in development mode
+}
+```
+
+Example Error Handling:
+```javascript
+const handleApiError = (error) => {
+  if (error.response) {
+    // Server responded with error
+    const message = error.response.data.message || 'An error occurred';
+    // Show error message to user (e.g., toast notification)
+    showErrorNotification(message);
+  } else if (error.request) {
+    // Request made but no response
+    showErrorNotification('Network error. Please check your connection.');
+  } else {
+    // Other errors
+    showErrorNotification('An unexpected error occurred.');
+  }
+};
+```
+
+===============================================
+4. TYPESCRIPT INTERFACES
+===============================================
+
+```typescript
+// Contact Form
+interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+// Project
+interface Project {
+  _id: string;
+  title: string;
+  description: string;
+  technologies: string[];
+  imageUrl: string;
+  githubUrl: string;
+  liveUrl?: string;
+  category: 'Web' | 'UI' | 'Fullstack' | 'Research' | 'Other';
+  featured: boolean;
+  completionDate: Date;
+  challenges?: string[];
+  solutions?: string[];
+  createdAt: Date;
+}
+
+// GitHub Activity
+interface GithubEvent {
+  id: string;
+  type: string;
+  repo: string;
+  createdAt: string;
+  commits?: Array<{
+    message: string;
+    url: string;
+  }>;
+  refType?: string;
+  ref?: string;
+  action?: string;
+  title?: string;
+  url?: string;
+}
+
+// GitHub Repository
+interface GithubRepo {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  stars: number;
+  forks: number;
+  language: string;
+  updatedAt: string;
+}
+```
+
+===============================================
+5. BEST PRACTICES
+===============================================
+
+1. Error Handling:
+   - Always implement proper error handling
+   - Show user-friendly error messages
+   - Log errors for debugging
+   - Handle network errors separately
+
+2. Loading States:
+   - Show loading indicators during API calls
+   - Disable submit buttons while submitting
+   - Implement skeleton loading for better UX
+
+3. Data Validation:
+   - Validate data before sending to API
+   - Implement proper form validation
+   - Handle empty/null values appropriately
+
+4. State Management:
+   - Use appropriate state management solution
+   - Implement proper loading/error states
+   - Cache responses when appropriate
+
+5. Security:
+   - Never store sensitive data in localStorage
+   - Implement proper CORS handling
+   - Validate all user inputs
+
+6. Performance:
+   - Implement debouncing for search/filter
+   - Cache API responses when appropriate
+   - Optimize image loading
+
+Example State Management:
+```javascript
+const useApiState = (apiCall) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const execute = async (...args) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiCall(...args);
+      setData(result.data);
+      return result;
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { data, loading, error, execute };
+};
+```
+
+===============================================
+6. EXAMPLE IMPLEMENTATION
+===============================================
+
+Complete Contact Form Example:
+```javascript
+import React, { useState } from 'react';
+
+const ContactForm = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiCall('/contact', {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      });
+      
+      setSuccess(true);
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+      });
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {error && <div className="error">{error}</div>}
+      {success && <div className="success">Message sent successfully!</div>}
+      
+      <input
+        type="text"
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        placeholder="Your Name"
+        required
+      />
+      
+      <input
+        type="email"
+        name="email"
+        value={formData.email}
+        onChange={handleChange}
+        placeholder="Your Email"
+        required
+      />
+      
+      <input
+        type="text"
+        name="subject"
+        value={formData.subject}
+        onChange={handleChange}
+        placeholder="Subject"
+        required
+      />
+      
+      <textarea
+        name="message"
+        value={formData.message}
+        onChange={handleChange}
+        placeholder="Your Message"
+        required
+      />
+      
+      <button type="submit" disabled={loading}>
+        {loading ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
+  );
+};
+
+export default ContactForm;
+```
+
+For any questions or issues, please contact: hkkhan074@gmail.com 

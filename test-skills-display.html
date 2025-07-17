@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skills Section - Landing Page Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .skills-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .skills-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: #333;
+        }
+        
+        .skill-category {
+            margin-bottom: 3rem;
+        }
+        
+        .category-title {
+            font-size: 1.8rem;
+            color: #555;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
+        
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .skill-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .skill-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .skill-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .skill-icon-fallback {
+            width: 40px;
+            height: 40px;
+            margin-right: 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            font-weight: bold;
+            color: #6c757d;
+            font-size: 1.2rem;
+        }
+        
+        .skill-header h4 {
+            font-size: 1.25rem;
+            color: #333;
+            margin: 0;
+        }
+        
+        .proficiency-container {
+            margin: 1.5rem 0;
+        }
+        
+        .proficiency-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .proficiency-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .proficiency-text {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .skill-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        
+        .skill-meta {
+            border-top: 1px solid #f0f0f0;
+            padding-top: 1rem;
+        }
+        
+        .experience {
+            display: inline-block;
+            background: #f8f9fa;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 1rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #dc3545;
+            background: #f8d7da;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .icon-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .skills-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .skill-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="skills-section">
+        <h2>Skills & Expertise</h2>
+        <div id="skills-container">
+            <div class="loading">Loading skills...</div>
+        </div>
+    </section>
+
+    <script>
+        async function loadSkills() {
+            try {
+                const response = await fetch('http://localhost:4000/api/skills/grouped');
+                const data = await response.json();
+                
+                const container = document.getElementById('skills-container');
+                
+                if (data.success && data.data.length > 0) {
+                    container.innerHTML = '';
+                    
+                    data.data.forEach(category => {
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.className = 'skill-category';
+                        
+                        const skillsHTML = category.skills.map(skill => {
+                            const iconInfo = skill.icon && skill.icon.library && skill.icon.name 
+                                ? `<div class="icon-info">Icon: ${skill.icon.library}/${skill.icon.name}</div>`
+                                : '';
+                            
+                            return `
+                                <div class="skill-card">
+                                    <div class="skill-header">
+                                        <div class="skill-icon-fallback">${skill.name.charAt(0)}</div>
+                                        <h4>${skill.name}</h4>
+                                    </div>
+                                    <div class="proficiency-container">
+                                        <div class="proficiency-bar">
+                                            <div class="proficiency-fill" style="width: ${skill.proficiencyLevel}%; background-color: ${skill.color || '#007bff'}"></div>
+                                        </div>
+                                        <span class="proficiency-text">${skill.proficiency} (${skill.proficiencyLevel}%)</span>
+                                    </div>
+                                    <p class="skill-description">${skill.description || 'No description available'}</p>
+                                    <div class="skill-meta">
+                                        <span class="experience">${skill.yearsOfExperience || 0} years experience</span>
+                                        ${iconInfo}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        categoryDiv.innerHTML = `
+                            <h3 class="category-title">${category._id.toUpperCase()}</h3>
+                            <div class="skills-grid">
+                                ${skillsHTML}
+                            </div>
+                        `;
+                        
+                        container.appendChild(categoryDiv);
+                    });
+                } else {
+                    container.innerHTML = '<div class="error">No skills found. Please add some skills through the admin panel.</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load skills:', error);
+                document.getElementById('skills-container').innerHTML = `
+                    <div class="error">
+                        Failed to load skills. Please make sure the server is running on http://localhost:4000
+                        <br><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Load skills when page loads
+        document.addEventListener('DOMContentLoaded', loadSkills);
+    </script>
+</body>
+</html> 

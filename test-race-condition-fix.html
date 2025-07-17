@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Condition Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Race Condition Fix Test</h1>
+        <p>This test demonstrates the race condition fix for JWT authentication.</p>
+        
+        <div>
+            <button onclick="testRaceConditionFix()">✅ Test Race Condition Fix</button>
+            <button onclick="testBadRaceCondition()">❌ Test Bad Race Condition</button>
+            <button onclick="testSequentialLogin()">🔄 Test Sequential Login</button>
+            <button onclick="clearLog()">🧹 Clear Log</button>
+        </div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="/auth-utils.js"></script>
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${timestamp}] ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.innerHTML = '';
+        }
+        
+        // ✅ GOOD: Race condition safe login
+        async function testRaceConditionFix() {
+            addLog('🔧 Testing race condition fix...', 'info');
+            
+            try {
+                // This method prevents race conditions
+                const result = await AuthUtils.loginAndFetchData('admin', 'admin123', {
+                    profile: () => AuthUtils.getProfile(),
+                    projects: () => AuthUtils.getAdminProjects({ limit: 5 }),
+                    stats: () => AuthUtils.getStats()
+                });
+                
+                addLog('✅ Login successful!', 'success');
+                addLog(`✅ Profile: ${result.data.profile.data.username}`, 'success');
+                addLog(`✅ Projects count: ${result.data.projects.data.length}`, 'success');
+                addLog(`✅ Stats: ${result.data.stats.data.totalProjects} total projects`, 'success');
+                
+            } catch (error) {
+                addLog(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // ❌ BAD: Race condition prone (for comparison)
+        async function testBadRaceCondition() {
+            addLog('⚠️ Testing bad race condition (for comparison)...', 'info');
+            
+            try {
+                // Clear auth state first
+                await AuthUtils.logout();
+                
+                // This can cause race conditions
+                const loginPromise = AuthUtils.login('admin', 'admin123');
+                const profilePromise = AuthUtils.getProfile(); // Might fail
+                const projectsPromise = AuthUtils.getAdminProjects(); // Might fail
+                
+                // Wait for all (some might fail)
+                const results = await Promise.allSettled([loginPromise, profilePromise, projectsPromise]);
+                
+                results.forEach((result, index) => {
+                    const names = ['login', 'profile', 'projects'];
+                    if (result.status === 'fulfilled') {
+                        addLog(`✅ ${names[index]} succeeded`, 'success');
+                    } else {
+                        addLog(`❌ ${names[index]} failed: ${result.reason.message}`, 'error');
+                    }
+                });
+                
+            } catch (error) {
+                addLog(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // ✅ GOOD: Manual sequential approach
+        async function testSequentialLogin() {
+            addLog('🔄 Testing sequential login...', 'info');
+            
+            try {
+                // Clear auth state first
+                await AuthUtils.logout();
+                
+                // Step 1: Login
+                addLog('Step 1: Logging in...', 'info');
+                await AuthUtils.login('admin', 'admin123');
+                addLog('✅ Login completed', 'success');
+                
+                // Step 2: Wait a bit (optional)
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Step 3: Fetch data sequentially
+                addLog('Step 2: Fetching profile...', 'info');
+                const profile = await AuthUtils.getProfile();
+                addLog(`✅ Profile: ${profile.data.username}`, 'success');
+                
+                addLog('Step 3: Fetching projects...', 'info');
+                const projects = await AuthUtils.getAdminProjects({ limit: 3 });
+                addLog(`✅ Projects: ${projects.data.length} items`, 'success');
+                
+                addLog('Step 4: Fetching stats...', 'info');
+                const stats = await AuthUtils.getStats();
+                addLog(`✅ Stats: ${stats.data.totalProjects} total projects`, 'success');
+                
+            } catch (error) {
+                addLog(`❌ Sequential test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize
+        addLog('🚀 Race condition fix test page loaded', 'info');
+        addLog('Click buttons above to test different authentication flows', 'info');
+    </script>
+</body>
+</html> 
