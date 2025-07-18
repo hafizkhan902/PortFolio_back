@@ -142,3 +142,35 @@ src/
 ## License
 
 This project is licensed under the MIT License. 
+
+## 🚀 Deploying to Railway
+
+### 1. Create a Railway Project
+- Go to [Railway](https://railway.app/) and create a new project.
+- Connect your GitHub repository or upload your code.
+
+### 2. Configure Environment Variables
+Set the following environment variables in the Railway dashboard:
+- `PORT` (e.g., 4000)
+- `NODE_ENV` (e.g., production)
+- `MONGODB_URI` (your MongoDB connection string)
+- `JWT_SECRET` (your JWT secret)
+- `EMAIL_HOST` (e.g., smtp.gmail.com)
+- `EMAIL_PORT` (e.g., 587)
+- `EMAIL_USER` (your email address)
+- `EMAIL_PASS` (your email password or app password)
+- `GITHUB_TOKEN` (your GitHub personal access token)
+- `CORS_ORIGIN` (your frontend URL)
+
+### 3. Set the Start Command
+Railway will use the `start` script from `package.json`:
+```
+npm start
+```
+
+### 4. (Optional) Add a Health Check
+Set the health check endpoint to `/api/health` in the Railway settings for better monitoring.
+
+### 5. Deploy
+- Click "Deploy" in Railway. Your app will build and start automatically.
+- View logs and monitor your deployment from the Railway dashboard. 
