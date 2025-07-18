@@ -173,7 +173,6 @@ const highlightSchema = new mongoose.Schema({
 highlightSchema.index({ isActive: 1 });
 highlightSchema.index({ featured: 1 });
 highlightSchema.index({ category: 1 });
-highlightSchema.index({ displayOrder: 1 });
 highlightSchema.index({ completionDate: -1 });
 
 // Compound index for unique display order

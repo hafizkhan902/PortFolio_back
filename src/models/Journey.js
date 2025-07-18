@@ -43,7 +43,6 @@ const journeySchema = new mongoose.Schema({
 });
 
 // Index for better query performance
-journeySchema.index({ displayOrder: 1 });
 journeySchema.index({ year: -1 });
 journeySchema.index({ createdAt: -1 });
 
