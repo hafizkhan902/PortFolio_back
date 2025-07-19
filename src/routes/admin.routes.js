@@ -6,6 +6,8 @@ const Contact = require('../models/Contact'); // Added Contact model
 const Journey = require('../models/Journey'); // Added Journey model
 const Skill = require('../models/Skill'); // Added Skill model
 const Highlight = require('../models/Highlight'); // Added Highlight model
+const Resume = require('../models/Resume'); // Added Resume model
+const multer = require('multer');
 const { generateToken, authenticateAdmin, requireSuperAdmin } = require('../middleware/auth');
 
 // Admin login
@@ -2137,6 +2139,354 @@ router.delete('/highlights/:id', authenticateAdmin, async (req, res) => {
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+});
+
+// ============ RESUME MANAGEMENT ENDPOINTS ============
+
+// Configure multer for PDF uploads (memory storage instead of disk)
+const storage = multer.memoryStorage();
+
+// File filter to allow only PDFs
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['application/pdf'];
+  
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PDF files are allowed.'), false);
+  }
+};
+
+// Configure multer for resume uploads
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit for resumes
+  }
+});
+
+// Get all resumes (admin only)
+router.get('/resume', authenticateAdmin, async (req, res) => {
+  try {
+    const resumes = await Resume.getAll();
+    
+    res.json({
+      success: true,
+      data: resumes
+    });
+  } catch (error) {
+    console.error('❌ Failed to fetch resumes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch resumes',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Upload/Update resume (admin only)
+router.post('/resume', authenticateAdmin, upload.single('resume'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No resume file provided'
+      });
+    }
+
+    const { title, version, description, tags, isPublic, resumeId } = req.body;
+
+    // If resumeId is provided, update existing resume
+    if (resumeId) {
+      const existingResume = await Resume.findById(resumeId);
+      
+      if (!existingResume) {
+        return res.status(404).json({
+          success: false,
+          message: 'Resume not found'
+        });
+      }
+
+      // Update resume
+      existingResume.title = title || existingResume.title;
+      existingResume.fileData = req.file.buffer; // Store file data in database
+      existingResume.contentType = req.file.mimetype;
+      existingResume.originalName = req.file.originalname;
+      existingResume.fileSize = req.file.size;
+      existingResume.version = version || existingResume.version;
+      existingResume.description = description || existingResume.description;
+      existingResume.tags = tags ? tags.split(',').map(tag => tag.trim()) : existingResume.tags;
+      existingResume.isPublic = isPublic !== 'false';
+      existingResume.updatedBy = req.admin._id;
+
+      await existingResume.save();
+      await existingResume.populate('createdBy', 'username email');
+      await existingResume.populate('updatedBy', 'username email');
+
+      // Remove file data from response
+      const responseData = existingResume.toObject();
+      delete responseData.fileData;
+
+      res.json({
+        success: true,
+        message: 'Resume updated successfully',
+        data: responseData
+      });
+    } else {
+      // Create new resume
+      const resume = await Resume.create({
+        title: title || 'My Resume',
+        fileData: req.file.buffer, // Store file data in database
+        contentType: req.file.mimetype,
+        originalName: req.file.originalname,
+        fileSize: req.file.size,
+        version: version || '1.0',
+        description: description || '',
+        tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+        isPublic: isPublic !== 'false', // Default to true
+        createdBy: req.admin._id
+      });
+
+      // Populate the created resume with admin details
+      await resume.populate('createdBy', 'username email');
+
+      // Remove file data from response
+      const responseData = resume.toObject();
+      delete responseData.fileData;
+
+      res.status(201).json({
+        success: true,
+        message: 'Resume uploaded successfully',
+        data: responseData
+      });
+    }
+  } catch (error) {
+    // Handle duplicate version error
+    if (error.code === 11000 && error.keyPattern?.version) {
+      return res.status(400).json({
+        success: false,
+        message: 'Version already exists. Please choose a different version.'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload resume',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get single resume by ID (admin only)
+router.get('/resume/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id)
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .select('-fileData'); // Exclude file data for performance
+
+    if (!resume) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: resume
+    });
+  } catch (error) {
+    console.error('❌ Failed to fetch resume:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch resume',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Update resume metadata (admin only)
+router.put('/resume/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { title, version, description, tags, isActive, isPublic } = req.body;
+
+    const resume = await Resume.findById(req.params.id);
+
+    if (!resume) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found'
+      });
+    }
+
+    // Update fields
+    if (title) resume.title = title;
+    if (version) resume.version = version;
+    if (description !== undefined) resume.description = description;
+    if (tags) resume.tags = tags.split(',').map(tag => tag.trim());
+    if (isActive !== undefined) resume.isActive = isActive;
+    if (isPublic !== undefined) resume.isPublic = isPublic;
+    
+    resume.updatedBy = req.admin._id;
+
+    await resume.save();
+
+    // Populate the updated resume
+    await resume.populate('createdBy', 'username email');
+    await resume.populate('updatedBy', 'username email');
+
+    // Remove file data from response
+    const responseData = resume.toObject();
+    delete responseData.fileData;
+
+    res.json({
+      success: true,
+      message: 'Resume updated successfully',
+      data: responseData
+    });
+  } catch (error) {
+    // Handle duplicate version error
+    if (error.code === 11000 && error.keyPattern?.version) {
+      return res.status(400).json({
+        success: false,
+        message: 'Version already exists. Please choose a different version.'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update resume',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Delete resume (admin only)
+router.delete('/resume/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+
+    if (!resume) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found'
+      });
+    }
+
+    // Delete from database (file data is automatically removed)
+    await Resume.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Resume deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Failed to delete resume:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete resume',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Toggle resume active status (admin only)
+router.patch('/resume/:id/toggle-active', authenticateAdmin, async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+
+    if (!resume) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found'
+      });
+    }
+
+    await resume.toggleActive();
+
+    // Remove file data from response
+    const responseData = resume.toObject();
+    delete responseData.fileData;
+
+    res.json({
+      success: true,
+      message: `Resume ${resume.isActive ? 'activated' : 'deactivated'} successfully`,
+      data: responseData
+    });
+  } catch (error) {
+    console.error('❌ Failed to toggle resume status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle resume status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Toggle resume public status (admin only)
+router.patch('/resume/:id/toggle-public', authenticateAdmin, async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+
+    if (!resume) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found'
+      });
+    }
+
+    await resume.togglePublic();
+
+    // Remove file data from response
+    const responseData = resume.toObject();
+    delete responseData.fileData;
+
+    res.json({
+      success: true,
+      message: `Resume ${resume.isPublic ? 'made public' : 'made private'} successfully`,
+      data: responseData
+    });
+  } catch (error) {
+    console.error('❌ Failed to toggle resume public status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle resume public status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Error handling middleware for multer
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'File size too large. Maximum size is 10MB.'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files. Only one file allowed.'
+      });
+    }
+  }
+  
+  if (error.message.includes('Invalid file type')) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: 'Upload failed',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
 });
 
 module.exports = router; 

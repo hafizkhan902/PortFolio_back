@@ -18,6 +18,7 @@ const uploadRoutes = require('./routes/upload.routes');
 const journeyRoutes = require('./routes/journey.routes');
 const skillsRoutes = require('./routes/skills.routes');
 const highlightsRoutes = require('./routes/highlights.routes');
+const resumeRoutes = require('./routes/resume.routes');
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -54,6 +55,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/journey', journeyRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/highlights', highlightsRoutes);
+app.use('/api/resume', resumeRoutes);
 
 // Admin panel route - serve your frontend admin panel
 app.get('/admin', (req, res) => {
